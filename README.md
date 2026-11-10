@@ -1,56 +1,48 @@
-# Welcome to your Expo app 👋
+# wait-gotta-tune
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A simple chromatic tuner for web, Android and iOS from one Expo (React Native) codebase.
+Tap start, play a note, and it shows the nearest note, how many cents off you are, and a
+note strip that slides to the exact pitch. It turns green when you are in tune.
 
-## Get started
+- Foreground only: the microphone is released when the tab is hidden, the app is minimized or the screen locks.
+- Audio is analysed on the device and never sent anywhere.
+- Range: about 28 Hz to 1600 Hz (bass low B up to G6), A4 = 440 Hz.
 
-1. Install dependencies
+## Run it
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+npm install
+npm run web          # http://localhost:8081 (localhost counts as a secure context for the mic)
+npm run check        # typecheck + lint + tests
+npm run export:web   # static build in dist/
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+The web build deploys to GitHub Pages from `main` (`.github/workflows/pages.yml`), under `/wait-gotta-tune`.
 
-### Other setup steps
+## Android
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+The app needs a development build (it uses a native microphone module, so Expo Go will not run it).
 
-## Learn more
+```
+npm i -g eas-cli
+eas login
+eas init
+eas build -p android --profile development   # dev client APK; then: npx expo start --dev-client
+eas build -p android --profile preview       # standalone APK for daily use
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## iOS
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Use the web build in Safari for now. A native build needs a paid Apple Developer account:
+`eas build -p ios --profile development`. The config (`app.json`) is already set up for it,
+but the native iOS microphone path has not been tested on a device yet.
 
-## Join the community
+## How it works
 
-Join our community of developers creating universal apps.
+```
+microphone -> 4096-sample window -> pitch detection (pitchy, McLeod method)
+           -> smoothing (outlier rejection, median, EMA, note hysteresis, hold)
+           -> animated note strip + cents gauge
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+See `CLAUDE.md` for the layout and the rules the code follows.
