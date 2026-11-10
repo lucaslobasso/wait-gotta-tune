@@ -37,6 +37,11 @@ export const HOLD_MS = 1000;
 export const IN_TUNE_ENTER_CENTS = 5;
 export const IN_TUNE_EXIT_CENTS = 8;
 
+/** Instrument modes: a string must ring in tune this long before moving to the next one. */
+export const IN_TUNE_HOLD_MS = 3000;
+/** Longest gap between two readings that still counts as continuous ringing. */
+export const MAX_FRAME_GAP_MS = 250;
+
 /** Range of the note strip: A0 to G#6. */
 export const STRIP_MIN_MIDI = 21;
 export const STRIP_MAX_MIDI = 92;

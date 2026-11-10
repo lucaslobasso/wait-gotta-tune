@@ -23,8 +23,11 @@ import type { PitchFrame, Smoother, TunerReading } from './types';
 
 export type SmootherOptions = {
   a4?: number;
-  /** Chooses the displayed note for a fractional MIDI pitch. Instrument profiles plug in here. */
-  pickNote?: (midi: number) => number;
+  /**
+   * Instrument modes: the note (MIDI number) of the string being tuned. Read on every
+   * frame, so it can change at any time. Null or absent means "nearest note" (Auto).
+   */
+  target?: () => number | null;
 };
 
 function median(values: readonly number[]): number {
@@ -46,8 +49,9 @@ function isOctaveShaped(deltaSemitones: number): boolean {
  */
 export function createSmoother(options: SmootherOptions = {}): Smoother {
   const a4 = options.a4 ?? A4_HZ;
-  const pickNote = options.pickNote ?? Math.round;
+  const target = options.target ?? (() => null);
 
+  let wasFixed = false;
   let tracking = false;
   let history: number[] = [];
   let ema: number | null = null;
@@ -123,19 +127,27 @@ export function createSmoother(options: SmootherOptions = {}): Smoother {
     const smoothed: number = ema === null ? med : ema + EMA_ALPHA * (med - ema);
     ema = smoothed;
 
-    if (note === null) {
-      note = pickNote(smoothed);
+    const fixed = target();
+    if (fixed !== null) {
+      // Tuning one string: always measure against it, however far off the pitch is.
+      if (note !== fixed) inTune = false;
+      note = fixed;
       switchCount = 0;
+    } else if (note === null || wasFixed) {
+      note = Math.round(smoothed);
+      switchCount = 0;
+      inTune = false;
     } else if (Math.abs(smoothed - note) > NOTE_SWITCH_SEMITONES) {
       switchCount += 1;
       if (switchCount >= NOTE_SWITCH_FRAMES) {
-        note = pickNote(smoothed);
+        note = Math.round(smoothed);
         switchCount = 0;
         inTune = false;
       }
     } else {
       switchCount = 0;
     }
+    wasFixed = fixed !== null;
 
     const cents = centsFrom(smoothed, note);
     inTune = Math.abs(cents) <= (inTune ? IN_TUNE_EXIT_CENTS : IN_TUNE_ENTER_CENTS);

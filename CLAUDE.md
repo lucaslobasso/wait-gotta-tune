@@ -1,6 +1,6 @@
 # wait-gotta-tune
 
-A simple chromatic tuner for web, Android and iOS from one Expo SDK 58 (React Native, TypeScript) codebase. One screen: it listens to the microphone and shows the note being played (big note name, a note strip that slides to the current pitch, a cents gauge that turns green in tune). Per-instrument tuning modes are planned but not built; `src/music/tuningProfile.ts` and the smoother's `pickNote` option are the seam for them.
+A simple chromatic tuner for web, Android and iOS from one Expo SDK 58 (React Native, TypeScript) codebase. One screen with four modes. **Auto** shows the nearest note (big note name, a note strip that slides to the current pitch, a cents gauge that turns green in tune). **Guitar / Bass / Ukulele** show the instrument's strings as horizontal lines (string 1, the thinnest, at the top; note and octave on the left); the user selects a string, an arrow says which way to tune it (up = too low, down = too high), and after it has rung in tune for 3 seconds the tuner moves to the next string that is not done.
 Web is hosted on GitHub Pages (public repo). Android is built with EAS and installed on a phone. iOS is covered by the web build in Safari until there is an Apple Developer account.
 Skills: none (code repo, edited deliberately).
 
@@ -29,14 +29,15 @@ None. This is a code repo: make normal commits with a short sentence-case messag
   - `createMicStream.web.ts`: `getUserMedia` + `AudioContext` + `AnalyserNode`, polled once per hop; full teardown on stop.
   - `createMicStream.d.ts`: type declaration for the platform split. `frameAssembler.ts`: chunks in, latest 4096 samples out every hop.
 - `src/pitch/detectPitch.ts`: DC removal, RMS in dBFS, pitchy (McLeod) -> `PitchFrame`.
-- `src/music/`: `notes.ts` (Hz <-> MIDI, note names, cents), `tuningProfile.ts` (future instrument modes).
+- `src/music/`: `notes.ts` (Hz <-> MIDI, note names, cents), `tuningProfile.ts` (`PROFILES`: Auto, Guitar, Bass, Ukulele, each listing strings from string 1 down; `nextString`). A new instrument is one more profile there.
 - `src/tuner/`:
   - `config.ts`, `types.ts`.
-  - `smoother.ts`: gate -> outlier/octave-jump rejection -> median -> EMA -> note hysteresis -> hold.
+  - `smoother.ts`: gate -> outlier/octave-jump rejection -> median -> EMA -> note hysteresis -> hold. With a `target` (the selected string) it measures against that note however far off the pitch is.
+  - `inTuneTimer.ts`: counts live in-tune time towards `IN_TUNE_HOLD_MS`; a short held gap pauses it, going out of tune resets it.
   - `tunerController.ts`: state machine `idle -> requesting -> listening <-> paused`, plus `denied` / `error`; start/stop serialized on one promise chain; dependencies injected.
-  - `useTuner.ts`: wires the real dependencies, owns the shared values and minimal React state.
-- `src/ui/`: `TunerScreen`, `NoteReadout`, `NoteStrip`, `CentsGauge`, `StatusPanel`, `theme.ts`.
-- Tests are colocated in `__tests__/`.
+  - `useTuner.ts`: wires the real dependencies, owns the shared values and minimal React state; takes `targetMidi` and `onTargetReached`.
+- `src/ui/`: `TunerScreen` (mode, selected string and done strings live here), `ModePicker`, `NoteReadout` + `NoteStrip` (Auto), `StringList` + `StringReadout` + `HoldProgress` + `Arrow` (instruments), `CentsGauge`, `StatusPanel`, `theme.ts`.
+- Tests are colocated in `__tests__/`. Components that import Reanimated cannot load under Jest: keep animated parts in their own small component (like `HoldProgress`) and stub it with `jest.mock` in tests.
 
 ## Helper scripts
 - `npm run web`: dev server (the mic works on localhost; other devices need HTTPS).

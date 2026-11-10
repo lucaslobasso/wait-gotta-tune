@@ -1,8 +1,14 @@
 # wait-gotta-tune
 
 A simple chromatic tuner for web, Android and iOS from one Expo (React Native) codebase.
-Tap start, play a note, and it shows the nearest note, how many cents off you are, and a
-note strip that slides to the exact pitch. It turns green when you are in tune.
+
+- **Auto:** tap start, play a note, and it shows the nearest note, how many cents off you are, and a
+  note strip that slides to the exact pitch. It turns green when you are in tune.
+- **Guitar, Bass, Ukulele:** the strings are shown as lines, thinnest at the top, each with its note
+  (guitar E4 B3 G3 D3 A2 E2, bass G2 D2 A1 E1, ukulele A4 E4 C4 G4). Select a string and follow the
+  arrow: up means tune up, down means tune down. When the string has rung in tune for 3 seconds it
+  is ticked off and the tuner moves to the next one.
+
 
 - Foreground only: the microphone is released when the tab is hidden, the app is minimized or the screen locks.
 - Audio is analysed on the device and never sent anywhere.

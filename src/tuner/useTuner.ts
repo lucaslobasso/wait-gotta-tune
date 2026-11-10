@@ -6,6 +6,7 @@ import { useSharedValue, withTiming, type SharedValue } from 'react-native-reani
 import { createMicStream } from '../audio/createMicStream';
 import { createPitchDetector } from '../pitch/detectPitch';
 import { HOP_SIZE, WINDOW_SIZE } from './config';
+import { createInTuneTimer } from './inTuneTimer';
 import { createSmoother } from './smoother';
 import { TunerController } from './tunerController';
 import type { TunerStatus } from './types';
@@ -24,6 +25,13 @@ export type TunerDisplay = {
   held: boolean;
 };
 
+export type TunerOptions = {
+  /** Instrument modes: MIDI note of the string being tuned. Null = Auto (nearest note). */
+  targetMidi?: number | null;
+  /** Called when the target string has rung in tune for the hold time. */
+  onTargetReached?: () => void;
+};
+
 export type Tuner = {
   status: TunerStatus;
   error: string | null;
@@ -36,6 +44,8 @@ export type Tuner = {
   presence: SharedValue<number>;
   /** 1 when in tune, else 0. */
   tuned: SharedValue<number>;
+  /** 0..1: how long the target string has rung in tune, towards the hold time. */
+  progress: SharedValue<number>;
   tap: () => void;
 };
 
@@ -43,26 +53,43 @@ export type Tuner = {
  * Runs the tuner for the lifetime of the screen. Animated values are updated on
  * every detection; React state only changes when the visible text would change.
  */
-export function useTuner(): Tuner {
+export function useTuner({ targetMidi = null, onTargetReached }: TunerOptions = {}): Tuner {
   const midi = useSharedValue(69);
   const cents = useSharedValue(0);
   const presence = useSharedValue(0);
   const tuned = useSharedValue(0);
+  const progress = useSharedValue(0);
 
   const [status, setStatus] = useState<TunerStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [display, setDisplay] = useState<TunerDisplay | null>(null);
   const controllerRef = useRef<TunerController | null>(null);
 
+  // Read by the audio callbacks, so they always see the current string.
+  const targetRef = useRef<number | null>(targetMidi);
+  const reachedRef = useRef(onTargetReached);
+  const timerRef = useRef(createInTuneTimer());
+
+  useEffect(() => {
+    reachedRef.current = onTargetReached;
+  }, [onTargetReached]);
+
+  useEffect(() => {
+    targetRef.current = targetMidi;
+    timerRef.current.reset();
+    progress.set(0);
+  }, [targetMidi, progress]);
+
   useEffect(() => {
     let shown: TunerDisplay | null = null;
     let shownAt = 0;
+    const timer = timerRef.current;
 
     const controller = new TunerController(
       {
         mic: createMicStream({ windowSize: WINDOW_SIZE, hopSize: HOP_SIZE }),
         detect: createPitchDetector(WINDOW_SIZE),
-        smoother: createSmoother(),
+        smoother: createSmoother({ target: () => targetRef.current }),
         appState: {
           current: () => AppState.currentState ?? 'active',
           subscribe: (cb) => {
@@ -84,6 +111,13 @@ export function useTuner(): Tuner {
           setError(micError && next === 'error' ? micError.message : null);
         },
         onReading: (reading) => {
+          const now = Date.now();
+          if (targetRef.current !== null) {
+            const reached = timer.push(reading, now);
+            progress.set(withTiming(timer.progress(), { duration: 90 }));
+            if (reached) reachedRef.current?.();
+          }
+
           if (!reading) {
             presence.set(withTiming(0, { duration: 500 }));
             tuned.set(withTiming(0, { duration: 120 }));
@@ -105,7 +139,6 @@ export function useTuner(): Tuner {
             inTune: reading.inTune,
             held: reading.held,
           };
-          const now = Date.now();
           const stateChanged =
             !shown ||
             shown.note !== next.note ||
@@ -126,9 +159,9 @@ export function useTuner(): Tuner {
       controllerRef.current = null;
       controller.dispose();
     };
-  }, [midi, cents, presence, tuned]);
+  }, [midi, cents, presence, tuned, progress]);
 
   const tap = useCallback(() => controllerRef.current?.tap(), []);
 
-  return { status, error, display, midi, cents, presence, tuned, tap };
+  return { status, error, display, midi, cents, presence, tuned, progress, tap };
 }
