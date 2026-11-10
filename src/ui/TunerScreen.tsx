@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CHROMATIC, nextString, PROFILES } from '../music/tuningProfile';
 import { A4_HZ } from '../tuner/config';
+import type { StringVerdict } from '../tuner/strumCheck';
 import { useTuner } from '../tuner/useTuner';
 import { CentsGauge } from './CentsGauge';
+import { CheckPanel } from './CheckPanel';
 import { ModePicker } from './ModePicker';
 import { NoteReadout } from './NoteReadout';
 import { NoteStrip } from './NoteStrip';
@@ -26,12 +28,20 @@ export function TunerScreen() {
   const [profileId, setProfileId] = useState(CHROMATIC.id);
   const [selected, setSelected] = useState<number | null>(null);
   const [done, setDone] = useState<ReadonlySet<number>>(NO_STRINGS);
+  // String check: strings that passed are skipped (disabled) until re-enabled.
+  const [skipped, setSkipped] = useState<ReadonlySet<number>>(NO_STRINGS);
+  const [verdicts, setVerdicts] = useState<readonly (StringVerdict | null)[] | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const profile = PROFILES.find((p) => p.id === profileId) ?? CHROMATIC;
   const strings = profile.targets;
   const isInstrument = strings.length > 0;
   const target = isInstrument && selected !== null ? strings[selected].midi : null;
-  const allDone = isInstrument && done.size === strings.length;
+  const allDone = isInstrument && done.size + skipped.size === strings.length;
+
+  const clearVerdict = (index: number) => {
+    if (verdicts?.[index]) setVerdicts(verdicts.map((v, i) => (i === index ? null : v)));
+  };
 
   const tuner = useTuner({
     targetMidi: target,
@@ -39,19 +49,46 @@ export function TunerScreen() {
       if (selected === null) return;
       const nextDone = new Set(done).add(selected);
       setDone(nextDone);
-      setSelected(nextString(strings.length, selected, nextDone));
+      clearVerdict(selected);
+      setSelected(nextString(strings.length, selected, new Set([...nextDone, ...skipped])));
+    },
+    onCheckDone: (result) => {
+      if (result.every((v) => v.status === 'missing')) {
+        setNotice('Could not hear the first string. Try again a bit louder.');
+        return;
+      }
+      const passed = new Set<number>();
+      result.forEach((v, i) => {
+        if (v.status === 'ok') passed.add(i);
+      });
+      const firstOff = result.findIndex((v) => v.status !== 'ok');
+      setVerdicts(result);
+      setSkipped(passed);
+      setDone(NO_STRINGS);
+      setSelected(firstOff >= 0 ? firstOff : null);
     },
   });
   const listening = tuner.status === 'listening';
+  const checking = tuner.check !== null;
 
-  const selectProfile = (id: string) => {
-    setProfileId(id);
+  const resetStrings = () => {
     setSelected(null);
     setDone(NO_STRINGS);
+    setSkipped(NO_STRINGS);
+    setVerdicts(null);
+    setNotice(null);
+  };
+
+  const selectProfile = (id: string) => {
+    tuner.cancelCheck();
+    setProfileId(id);
+    resetStrings();
   };
 
   const selectString = (index: number) => {
     setSelected(index);
+    setNotice(null);
+    clearVerdict(index);
     if (done.has(index)) {
       const nextDone = new Set(done);
       nextDone.delete(index);
@@ -59,6 +96,17 @@ export function TunerScreen() {
     }
     // Selecting a string starts the tuner (the tap doubles as the mic's user gesture).
     if (!listening && tuner.status !== 'requesting') tuner.tap();
+  };
+
+  const startCheck = () => {
+    resetStrings();
+    tuner.startCheck(strings.map((string) => string.midi));
+  };
+
+  /** Makes the strings that passed the check selectable again. */
+  const enableSkipped = () => {
+    setVerdicts(verdicts ? verdicts.map((v, i) => (skipped.has(i) ? null : v)) : null);
+    setSkipped(NO_STRINGS);
   };
 
   let direction: TuneDirection = null;
@@ -82,9 +130,16 @@ export function TunerScreen() {
         <ModePicker profiles={PROFILES} selectedId={profile.id} onSelect={selectProfile} />
 
         <View style={styles.main}>
-          {waitingForString ? (
+          {checking && listening ? (
+            <CheckPanel
+              index={tuner.check!.current}
+              midi={strings[tuner.check!.current].midi}
+              total={strings.length}
+              onCancel={tuner.cancelCheck}
+            />
+          ) : waitingForString && !checking ? (
             <Text style={[styles.hint, allDone && styles.hintDone]}>
-              {allDone ? 'All strings in tune ✓' : 'Select a string to start'}
+              {allDone ? 'All strings in tune ✓' : (notice ?? 'Select a string to start')}
             </Text>
           ) : tuner.status !== 'listening' ? (
             <StatusPanel status={tuner.status} error={tuner.error} onPress={tuner.tap} />
@@ -97,13 +152,36 @@ export function TunerScreen() {
 
         {width > 0 ? (
           <View style={styles.meters}>
+            {isInstrument && !checking ? (
+              <View style={styles.actions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Check all strings, experimental"
+                  onPress={startCheck}
+                  style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
+                  <Text style={styles.actionLabel}>Check all strings</Text>
+                  <Text style={styles.beta}>beta</Text>
+                </Pressable>
+                {skipped.size > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={enableSkipped}
+                    style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
+                    <Text style={styles.actionLabel}>Enable skipped strings</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
             {isInstrument ? (
               <StringList
                 strings={strings}
-                selected={selected}
+                selected={tuner.check ? tuner.check.current : selected}
                 done={done}
                 direction={direction}
                 onSelect={selectString}
+                verdicts={tuner.check ? tuner.check.verdicts : verdicts}
+                skipped={skipped}
+                locked={checking}
               />
             ) : (
               <NoteStrip width={width} midi={tuner.midi} presence={tuner.presence} />
@@ -136,4 +214,17 @@ const styles = StyleSheet.create({
   hint: { fontSize: 20, color: colors.dim, textAlign: 'center', paddingHorizontal: 24 },
   hintDone: { color: colors.inTune, fontWeight: '600' },
   meters: { gap: 16 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
+  action: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.surface,
+  },
+  actionLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
+  beta: { fontSize: 12, fontWeight: '600', color: colors.offPitch },
+  pressed: { opacity: 0.6 },
 });

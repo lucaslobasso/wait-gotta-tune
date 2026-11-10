@@ -24,7 +24,7 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function createMicStream({ windowSize, hopSize }: MicStreamOptions): MicStream {
+export function createMicStream({ windowSize, hopSize, minFill }: MicStreamOptions): MicStream {
   let started = false;
   let interruption: { remove(): void } | null = null;
 
@@ -76,7 +76,7 @@ export function createMicStream({ windowSize, hopSize }: MicStreamOptions): MicS
       });
 
       // The recorder may not honour bufferLength, so windows are assembled here.
-      const assembler = new FrameAssembler(windowSize, hopSize, onFrame);
+      const assembler = new FrameAssembler(windowSize, hopSize, onFrame, minFill);
       const sampleRate = AudioManager.getDevicePreferredSampleRate() || FALLBACK_SAMPLE_RATE;
       const registered = recorder.onAudioReady(
         { sampleRate, bufferLength: hopSize, channelCount: 1 },

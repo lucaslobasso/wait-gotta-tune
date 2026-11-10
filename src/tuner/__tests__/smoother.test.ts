@@ -189,6 +189,18 @@ describe('smoother', () => {
       expect(next.inTune).toBe(false);
     });
 
+    it('does not hold an old in-tune reading when a string is selected', () => {
+      let target: number | null = null;
+      const feed = feeder(createSmoother({ target: () => target }));
+      // Auto mode: a low note, in tune as the nearest note.
+      expect(feed.repeat(frame(26), 6)!.inTune).toBe(true);
+
+      target = 59;
+      // Silence, then an unclear frame: the reading for the old mode must not linger.
+      expect(feed.push(null)).toBeNull();
+      expect(feed.push(frame(26, 0.3))).toBeNull();
+    });
+
     it('goes back to the nearest note when the target is cleared', () => {
       let target: number | null = 64;
       const feed = feeder(createSmoother({ target: () => target }));

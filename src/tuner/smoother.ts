@@ -51,7 +51,7 @@ export function createSmoother(options: SmootherOptions = {}): Smoother {
   const a4 = options.a4 ?? A4_HZ;
   const target = options.target ?? (() => null);
 
-  let wasFixed = false;
+  let previousTarget: number | null = target();
   let tracking = false;
   let history: number[] = [];
   let ema: number | null = null;
@@ -92,6 +92,12 @@ export function createSmoother(options: SmootherOptions = {}): Smoother {
   }
 
   function push(frame: PitchFrame | null, tMs: number): TunerReading | null {
+    // A different string (or mode): nothing measured against the old one may linger.
+    const fixed = target();
+    if (fixed !== previousTarget) {
+      previousTarget = fixed;
+      reset();
+    }
     if (!frame || !passesGate(frame)) {
       if (last && tMs - lastValidAt <= HOLD_MS) return { ...last, held: true };
       reset();
@@ -127,13 +133,12 @@ export function createSmoother(options: SmootherOptions = {}): Smoother {
     const smoothed: number = ema === null ? med : ema + EMA_ALPHA * (med - ema);
     ema = smoothed;
 
-    const fixed = target();
     if (fixed !== null) {
       // Tuning one string: always measure against it, however far off the pitch is.
       if (note !== fixed) inTune = false;
       note = fixed;
       switchCount = 0;
-    } else if (note === null || wasFixed) {
+    } else if (note === null) {
       note = Math.round(smoothed);
       switchCount = 0;
       inTune = false;
@@ -147,8 +152,6 @@ export function createSmoother(options: SmootherOptions = {}): Smoother {
     } else {
       switchCount = 0;
     }
-    wasFixed = fixed !== null;
-
     const cents = centsFrom(smoothed, note);
     inTune = Math.abs(cents) <= (inTune ? IN_TUNE_EXIT_CENTS : IN_TUNE_ENTER_CENTS);
 

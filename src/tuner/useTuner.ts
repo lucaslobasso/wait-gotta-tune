@@ -5,9 +5,10 @@ import { useSharedValue, withTiming, type SharedValue } from 'react-native-reani
 
 import { createMicStream } from '../audio/createMicStream';
 import { createPitchDetector } from '../pitch/detectPitch';
-import { HOP_SIZE, WINDOW_SIZE } from './config';
+import { CHECK_BUFFER_SIZE, HOP_SIZE, WINDOW_SIZE } from './config';
 import { createInTuneTimer } from './inTuneTimer';
 import { createSmoother } from './smoother';
+import { createStrumCheck, type StringVerdict, type StrumCheck } from './strumCheck';
 import { TunerController } from './tunerController';
 import type { TunerStatus } from './types';
 
@@ -30,6 +31,8 @@ export type TunerOptions = {
   targetMidi?: number | null;
   /** Called when the target string has rung in tune for the hold time. */
   onTargetReached?: () => void;
+  /** Called with one verdict per string when a string check ends by itself. */
+  onCheckDone?: (verdicts: StringVerdict[]) => void;
 };
 
 export type Tuner = {
@@ -47,13 +50,22 @@ export type Tuner = {
   /** 0..1: how long the target string has rung in tune, towards the hold time. */
   progress: SharedValue<number>;
   tap: () => void;
+  /** While a string check is running: the verdicts so far and the string to pluck now. */
+  check: { verdicts: StringVerdict[]; current: number } | null;
+  /** Starts a string check for these string notes (MIDI); starts the microphone if needed. */
+  startCheck: (targets: readonly number[]) => void;
+  cancelCheck: () => void;
 };
 
 /**
  * Runs the tuner for the lifetime of the screen. Animated values are updated on
  * every detection; React state only changes when the visible text would change.
  */
-export function useTuner({ targetMidi = null, onTargetReached }: TunerOptions = {}): Tuner {
+export function useTuner({
+  targetMidi = null,
+  onTargetReached,
+  onCheckDone,
+}: TunerOptions = {}): Tuner {
   const midi = useSharedValue(69);
   const cents = useSharedValue(0);
   const presence = useSharedValue(0);
@@ -63,7 +75,10 @@ export function useTuner({ targetMidi = null, onTargetReached }: TunerOptions = 
   const [status, setStatus] = useState<TunerStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [display, setDisplay] = useState<TunerDisplay | null>(null);
+  const [check, setCheck] = useState<Tuner['check']>(null);
   const controllerRef = useRef<TunerController | null>(null);
+  const checkRef = useRef<StrumCheck | null>(null);
+  const checkDoneRef = useRef(onCheckDone);
 
   // Read by the audio callbacks, so they always see the current string.
   const targetRef = useRef<number | null>(targetMidi);
@@ -72,7 +87,8 @@ export function useTuner({ targetMidi = null, onTargetReached }: TunerOptions = 
 
   useEffect(() => {
     reachedRef.current = onTargetReached;
-  }, [onTargetReached]);
+    checkDoneRef.current = onCheckDone;
+  }, [onTargetReached, onCheckDone]);
 
   useEffect(() => {
     targetRef.current = targetMidi;
@@ -83,12 +99,20 @@ export function useTuner({ targetMidi = null, onTargetReached }: TunerOptions = 
   useEffect(() => {
     let shown: TunerDisplay | null = null;
     let shownAt = 0;
+    let checkShown = -1;
     const timer = timerRef.current;
+    const detector = createPitchDetector(WINDOW_SIZE);
 
     const controller = new TunerController(
       {
-        mic: createMicStream({ windowSize: WINDOW_SIZE, hopSize: HOP_SIZE }),
-        detect: createPitchDetector(WINDOW_SIZE),
+        // The microphone keeps a long history for the string check; the tuner reads its end.
+        mic: createMicStream({
+          windowSize: CHECK_BUFFER_SIZE,
+          hopSize: HOP_SIZE,
+          minFill: WINDOW_SIZE,
+        }),
+        detect: (window, sampleRate) =>
+          detector(window.subarray(window.length - WINDOW_SIZE), sampleRate),
         smoother: createSmoother({ target: () => targetRef.current }),
         appState: {
           current: () => AppState.currentState ?? 'active',
@@ -109,10 +133,29 @@ export function useTuner({ targetMidi = null, onTargetReached }: TunerOptions = 
         onStatus: (next, micError) => {
           setStatus(next);
           setError(micError && next === 'error' ? micError.message : null);
+          // A check does not survive losing the microphone (backgrounded, denied, error).
+          if (next !== 'listening' && next !== 'requesting' && checkRef.current) {
+            checkRef.current = null;
+            setCheck(null);
+          }
+        },
+        onWindow: (window, sampleRate, tMs) => {
+          const running = checkRef.current;
+          if (!running) return;
+          const { verdicts, current, finished } = running.push(window, sampleRate, tMs);
+          if (finished || current === null) {
+            checkRef.current = null;
+            checkShown = -1;
+            setCheck(null);
+            checkDoneRef.current?.(verdicts);
+          } else if (current !== checkShown) {
+            checkShown = current;
+            setCheck({ verdicts, current });
+          }
         },
         onReading: (reading) => {
           const now = Date.now();
-          if (targetRef.current !== null) {
+          if (targetRef.current !== null && !checkRef.current) {
             const reached = timer.push(reading, now);
             progress.set(withTiming(timer.progress(), { duration: 90 }));
             if (reached) reachedRef.current?.();
@@ -163,5 +206,28 @@ export function useTuner({ targetMidi = null, onTargetReached }: TunerOptions = 
 
   const tap = useCallback(() => controllerRef.current?.tap(), []);
 
-  return { status, error, display, midi, cents, presence, tuned, progress, tap };
+  const startCheck = useCallback((targets: readonly number[]) => {
+    checkRef.current = createStrumCheck(targets);
+    setCheck({ verdicts: targets.map(() => ({ status: 'missing', cents: null })), current: 0 });
+    controllerRef.current?.tap();
+  }, []);
+  const cancelCheck = useCallback(() => {
+    checkRef.current = null;
+    setCheck(null);
+  }, []);
+
+  return {
+    status,
+    error,
+    display,
+    midi,
+    cents,
+    presence,
+    tuned,
+    progress,
+    tap,
+    check,
+    startCheck,
+    cancelCheck,
+  };
 }

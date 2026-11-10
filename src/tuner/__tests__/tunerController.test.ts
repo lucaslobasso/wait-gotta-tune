@@ -76,6 +76,7 @@ function setup(overrides: Partial<TunerDeps> = {}) {
   const statuses: TunerStatus[] = [];
   const errors: (MicError | undefined)[] = [];
   const readings: (TunerReading | null)[] = [];
+  const windows: number[][] = [];
   const app = {
     state: 'active',
     listeners: new Set<(state: string) => void>(),
@@ -110,10 +111,11 @@ function setup(overrides: Partial<TunerDeps> = {}) {
         errors.push(error);
       },
       onReading: (reading) => readings.push(reading),
+      onWindow: (window, sampleRate, tMs) => windows.push([window.length, sampleRate, tMs]),
     },
   );
   const status = () => statuses[statuses.length - 1] ?? 'idle';
-  return { controller, mic, app, keepAwake, detect, smoother, statuses, errors, readings, status };
+  return { controller, mic, app, keepAwake, detect, smoother, statuses, errors, readings, windows, status };
 }
 
 describe('TunerController', () => {
@@ -130,6 +132,24 @@ describe('TunerController', () => {
     expect(t.statuses).toEqual(['requesting', 'listening']);
     expect(t.keepAwake.on).toHaveBeenCalledTimes(1);
     expect(t.mic.active).toBe(true);
+  });
+
+  it('passes every microphone window on while listening, and none before or after', async () => {
+    const t = setup();
+    t.controller.mount();
+    t.mic.emit();
+    t.controller.tap();
+    await flush();
+    t.mic.emit();
+    t.mic.emit();
+    expect(t.windows).toEqual([
+      [4, 48000, 0],
+      [4, 48000, 0],
+    ]);
+    t.app.set('background');
+    await flush();
+    t.mic.emit();
+    expect(t.windows).toHaveLength(2);
   });
 
   it('turns frames into readings while listening', async () => {

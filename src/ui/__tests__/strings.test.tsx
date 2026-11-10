@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { GUITAR, PROFILES, UKULELE } from '../../music/tuningProfile';
+import { CheckPanel } from '../CheckPanel';
 import { ModePicker } from '../ModePicker';
 import { StringList } from '../StringList';
 import { StringReadout } from '../StringReadout';
@@ -71,6 +72,77 @@ describe('StringList', () => {
     expect(screen.getByLabelText('String 1, E 4, in tune')).toBeTruthy();
     expect(screen.getByLabelText('String 3, G 3').props.accessibilityState.selected).toBe(true);
     expect(screen.getAllByText('✓')).toHaveLength(2);
+  });
+});
+
+describe('StringList after a string check', () => {
+  const verdicts = [
+    { status: 'ok', cents: 2 },
+    { status: 'flat', cents: -23 },
+    { status: 'sharp', cents: 12 },
+    { status: 'missing', cents: null },
+    null,
+    null,
+  ] as const;
+
+  it('shows each verdict and disables the strings that passed', async () => {
+    const onSelect = jest.fn();
+    await render(
+      <StringList
+        strings={GUITAR.targets}
+        selected={1}
+        done={new Set()}
+        direction={null}
+        onSelect={onSelect}
+        verdicts={verdicts}
+        skipped={new Set([0])}
+      />,
+    );
+    const passed = screen.getByLabelText('String 1, E 4, in tune, skipped');
+    expect(passed.props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(passed);
+    expect(onSelect).not.toHaveBeenCalled();
+
+    expect(screen.getByLabelText('String 2, B 3, 23 cents flat')).toBeTruthy();
+    expect(screen.getByText('−23¢')).toBeTruthy();
+    expect(screen.getByLabelText('String 3, G 3, 12 cents sharp')).toBeTruthy();
+    expect(screen.getByText('+12¢')).toBeTruthy();
+    expect(screen.getByText('?')).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText('String 3, G 3, 12 cents sharp'));
+    expect(onSelect).toHaveBeenCalledWith(2);
+  });
+
+  it('is locked while a check runs and only marks strings already checked', async () => {
+    const onSelect = jest.fn();
+    const missing = { status: 'missing', cents: null } as const;
+    await render(
+      <StringList
+        strings={UKULELE.targets}
+        selected={2}
+        done={new Set()}
+        direction={null}
+        onSelect={onSelect}
+        verdicts={[{ status: 'ok', cents: 0 }, missing, missing, missing]}
+        locked
+      />,
+    );
+    await fireEvent.press(screen.getByLabelText('String 4, G 4'));
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('String 1, A 4, in tune')).toBeTruthy();
+    // String 2 was not heard; strings 3 (current) and 4 are still to come.
+    expect(screen.getAllByText('?')).toHaveLength(1);
+  });
+});
+
+describe('CheckPanel', () => {
+  it('says which string to pluck and can be cancelled', async () => {
+    const onCancel = jest.fn();
+    await render(<CheckPanel index={2} midi={55} total={6} onCancel={onCancel} />);
+    expect(screen.getByText('Pluck string 3')).toBeTruthy();
+    expect(screen.getByLabelText('Pluck string 3, G 3')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Cancel'));
+    expect(onCancel).toHaveBeenCalled();
   });
 });
 

@@ -8,7 +8,11 @@ A simple chromatic tuner for web, Android and iOS from one Expo (React Native) c
   (guitar E4 B3 G3 D3 A2 E2, bass G2 D2 A1 E1, ukulele A4 E4 C4 G4). Select a string and follow the
   arrow: up means tune up, down means tune down. When the string has rung in tune for 3 seconds it
   is ticked off and the tuner moves to the next one.
-
+- **Check all strings (beta):** in an instrument mode, the app asks for each string in turn, from
+  the top down. Pluck it and let it ring; after about half a second the next one lights up. At the
+  end every string shows a tick or how far off it is (for example −23¢), the strings that passed are
+  disabled, and the first one that is off is selected for tuning. "Enable skipped strings" makes the
+  disabled ones selectable again. It has only been tested with synthetic audio so far.
 
 - Foreground only: the microphone is released when the tab is hidden, the app is minimized or the screen locks.
 - Audio is analysed on the device and never sent anywhere.
@@ -50,5 +54,8 @@ microphone -> 4096-sample window -> pitch detection (pitchy, McLeod method)
            -> smoothing (outlier rejection, median, EMA, note hysteresis, hold)
            -> animated note strip + cents gauge
 ```
+
+The string check does not use the pitch detector (with several strings ringing it hears the chord,
+not the string). It looks for a peak in a narrow band around the expected string's note and octave.
 
 See `CLAUDE.md` for the layout and the rules the code follows.

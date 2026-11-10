@@ -32,4 +32,9 @@ export interface MicStream {
   stop(): Promise<void>;
 }
 
-export type MicStreamOptions = { windowSize: number; hopSize: number };
+export type MicStreamOptions = {
+  windowSize: number;
+  hopSize: number;
+  /** Start delivering once this many samples were captured (default: a full window). */
+  minFill?: number;
+};

@@ -14,8 +14,9 @@ function delay(ms: number): Promise<void> {
 
 /**
  * Browser microphone: getUserMedia -> AudioContext -> AnalyserNode. The analyser
- * already keeps a sliding window of the latest samples, so it is simply polled
- * once per hop. Fully torn down on stop (tracks stopped, context closed).
+ * already keeps a sliding window of the latest samples (silence until it fills),
+ * so it is simply polled once per hop. `windowSize` must be a power of two up to
+ * 32768. Fully torn down on stop (tracks stopped, context closed).
  */
 export function createMicStream({ windowSize, hopSize }: MicStreamOptions): MicStream {
   let ctx: AudioContext | null = null;
