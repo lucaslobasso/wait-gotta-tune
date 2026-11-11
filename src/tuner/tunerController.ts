@@ -3,6 +3,8 @@ import type { PitchDetectFn, Smoother, TunerReading, TunerStatus } from './types
 
 export interface TunerSink {
   onStatus(status: TunerStatus, error?: MicError): void;
+  /** Every microphone window while listening (used by the string check). Valid only during the call. */
+  onWindow?(window: Float32Array, sampleRate: number, tMs: number): void;
   onReading(reading: TunerReading | null): void;
 }
 
@@ -69,6 +71,15 @@ export class TunerController {
     // Must run synchronously inside the tap (web audio needs a user gesture).
     this.deps.mic.prepare?.();
     this.requestStart();
+  }
+
+  /** The user stopped the tuner: release the microphone and wait for a tap. */
+  stop(): void {
+    if (this.disposed || (this.status !== 'listening' && this.status !== 'requesting')) return;
+    this.want = false;
+    this.setStatus('idle');
+    this.sink.onReading(null);
+    this.enqueue();
   }
 
   dispose(): void {
@@ -178,8 +189,10 @@ export class TunerController {
   private onFrame(epoch: number, window: Float32Array, sampleRate: number): void {
     if (epoch !== this.epoch || this.status !== 'listening' || this.disposed) return;
     try {
+      const now = this.deps.now();
+      this.sink.onWindow?.(window, sampleRate, now);
       const frame = this.deps.detect(window, sampleRate);
-      this.sink.onReading(this.deps.smoother.push(frame, this.deps.now()));
+      this.sink.onReading(this.deps.smoother.push(frame, now));
     } catch (error) {
       this.onMicError(epoch, toMicError(error));
     }

@@ -162,10 +162,53 @@ describe('smoother', () => {
     expect(feed.push(frame(60))!.note).toBe(60);
   });
 
-  it('lets a profile choose the displayed note', () => {
-    const feed = feeder(createSmoother({ pickNote: () => 64 }));
-    const reading = feed.repeat(frame(64.3), 5)!;
-    expect(reading.note).toBe(64);
-    expect(reading.cents).toBeCloseTo(30, 0);
+  describe('with a target string', () => {
+    it('measures against the target however far off the pitch is', () => {
+      const feed = feeder(createSmoother({ target: () => 64 }));
+      const flat = feed.repeat(frame(61.5), 8)!;
+      expect(flat.note).toBe(64);
+      expect(flat.cents).toBeCloseTo(-250, 0);
+      expect(flat.inTune).toBe(false);
+
+      const sharp = feed.repeat(frame(64.3), 30)!;
+      expect(sharp.note).toBe(64);
+      expect(sharp.cents).toBeCloseTo(30, 0);
+
+      expect(feed.repeat(frame(64.02), 30)!.inTune).toBe(true);
+    });
+
+    it('follows the target when the selected string changes', () => {
+      let target: number | null = 64;
+      const feed = feeder(createSmoother({ target: () => target }));
+      expect(feed.repeat(frame(64), 6)!.inTune).toBe(true);
+
+      target = 59;
+      const next = feed.push(frame(64))!;
+      expect(next.note).toBe(59);
+      expect(next.cents).toBeCloseTo(500, 0);
+      expect(next.inTune).toBe(false);
+    });
+
+    it('does not hold an old in-tune reading when a string is selected', () => {
+      let target: number | null = null;
+      const feed = feeder(createSmoother({ target: () => target }));
+      // Auto mode: a low note, in tune as the nearest note.
+      expect(feed.repeat(frame(26), 6)!.inTune).toBe(true);
+
+      target = 59;
+      // Silence, then an unclear frame: the reading for the old mode must not linger.
+      expect(feed.push(null)).toBeNull();
+      expect(feed.push(frame(26, 0.3))).toBeNull();
+    });
+
+    it('goes back to the nearest note when the target is cleared', () => {
+      let target: number | null = 64;
+      const feed = feeder(createSmoother({ target: () => target }));
+      feed.repeat(frame(69), 6);
+      target = null;
+      const auto = feed.push(frame(69))!;
+      expect(auto.note).toBe(69);
+      expect(auto.cents).toBeCloseTo(0, 5);
+    });
   });
 });

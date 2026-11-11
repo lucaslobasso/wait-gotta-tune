@@ -14,6 +14,17 @@ function collect() {
 }
 
 describe('FrameAssembler', () => {
+  it('can start early: emits once minFill samples arrived, with silence before them', () => {
+    const windows: number[][] = [];
+    const assembler = new FrameAssembler(WINDOW, HOP, (w) => windows.push(Array.from(w)), HOP);
+    assembler.push(ramp(1, 4), 48000);
+    expect(windows).toHaveLength(0);
+    assembler.push(ramp(5, 4), 48000);
+    expect(windows).toEqual([[0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8]]);
+    assembler.push(ramp(9, 8), 48000);
+    expect(windows[1]).toEqual(Array.from(ramp(1, 16)));
+  });
+
   it('emits nothing until the window is full', () => {
     const { assembler, windows } = collect();
     assembler.push(ramp(0, 8), 48000);

@@ -1,8 +1,21 @@
 # wait-gotta-tune
 
 A simple chromatic tuner for web, Android and iOS from one Expo (React Native) codebase.
-Tap start, play a note, and it shows the nearest note, how many cents off you are, and a
-note strip that slides to the exact pitch. It turns green when you are in tune.
+
+- **Auto:** tap start, play a note, and it shows the nearest note and how many cents off you are.
+  A small note beside it shows which neighbouring note you are leaning towards.
+- **Guitar, Bass, Ukulele:** the strings are shown as lines, thinnest at the top, each with its note
+  (guitar E4 B3 G3 D3 A2 E2, bass G2 D2 A1 E1, ukulele A4 E4 C4 G4). Select a string and follow the
+  arrow: up means tune up, down means tune down. When the string has rung in tune for 3 seconds it
+  is ticked off and the tuner moves to the next one.
+- **Check all strings (beta):** in an instrument mode, tap it and pluck every string once, from the
+  thickest to the thinnest (6 to 1 on guitar), roughly a quarter to three quarters of a second
+  apart. Each pluck is taken as the next string in that order. At the end every string shows a tick
+  or how far off it is (for example −23¢), the strings that passed are disabled, and the first one
+  that is off is selected for tuning. "Enable skipped strings" makes the disabled ones selectable
+  again. It has only been tested with synthetic audio so far.
+- The background turns from dark blue to green as you get close to the note, and **Stop** releases
+  the microphone.
 
 - Foreground only: the microphone is released when the tab is hidden, the app is minimized or the screen locks.
 - Audio is analysed on the device and never sent anywhere.
@@ -44,5 +57,12 @@ microphone -> 4096-sample window -> pitch detection (pitchy, McLeod method)
            -> smoothing (outlier rejection, median, EMA, note hysteresis, hold)
            -> animated note strip + cents gauge
 ```
+
+In the instrument modes the selected string is measured in its own narrow band instead, so a
+neighbouring string or an overtone cannot take over the reading.
+
+The string check does not use the pitch detector either (with several strings ringing it hears the
+chord, not the string). It notices each pluck, takes it as the next string in order, and measures
+what that pluck added around the string's own note.
 
 See `CLAUDE.md` for the layout and the rules the code follows.
