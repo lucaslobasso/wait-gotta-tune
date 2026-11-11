@@ -6,7 +6,6 @@ import { CHROMATIC, nextString, PROFILES } from '../music/tuningProfile';
 import { A4_HZ } from '../tuner/config';
 import type { StringVerdict } from '../tuner/strumCheck';
 import { useTuner } from '../tuner/useTuner';
-import { CentsGauge } from './CentsGauge';
 import { CheckPanel } from './CheckPanel';
 import { ModePicker } from './ModePicker';
 import { NoteReadout } from './NoteReadout';
@@ -194,14 +193,6 @@ export function TunerScreen() {
                 verdicts={tuner.check ? tuner.check.verdicts : verdicts}
                 skipped={skipped}
                 locked={checking}
-              />
-            ) : null}
-            {isInstrument ? (
-              <CentsGauge
-                width={width}
-                cents={tuner.cents}
-                tuned={tuner.tuned}
-                presence={tuner.presence}
               />
             ) : null}
           </View>

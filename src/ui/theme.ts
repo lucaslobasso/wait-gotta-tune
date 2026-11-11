@@ -6,7 +6,10 @@ export const colors = {
   line: '#2A323D',
   text: '#F2F4F7',
   dim: '#7B8794',
+  /** Too high: tune down (amber, shown on the right). */
   offPitch: '#FFB020',
+  /** Too low: tune up (blue, shown on the left). */
+  tooLow: '#4DA3FF',
   inTune: '#3DDC84',
   error: '#FF5D5D',
 } as const;

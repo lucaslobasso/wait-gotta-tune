@@ -89,7 +89,11 @@ export function StringList({
               {isDone || (isSelected && direction === 'ok') ? (
                 <Text style={styles.check}>✓</Text>
               ) : isSelected && (direction === 'up' || direction === 'down') ? (
-                <Arrow direction={direction} size={16} color={colors.offPitch} />
+                <Arrow
+                  direction={direction}
+                  size={16}
+                  color={direction === 'up' ? colors.tooLow : colors.offPitch}
+                />
               ) : isOff ? (
                 <Text style={styles.off}>{verdictLabel(verdict!.cents!)}</Text>
               ) : verdict?.status === 'missing' && (!locked || index > (selected ?? strings.length)) ? (

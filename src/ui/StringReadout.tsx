@@ -25,7 +25,9 @@ function spokenLabel(target: number, display: TunerDisplay | null): string {
 
 /**
  * Instrument modes: the note of the selected string, an arrow showing which way to
- * tune it (up = too low, down = too high), and a bar that fills while it rings in tune.
+ * tune it, and a bar that fills while it rings in tune. The two directions look
+ * different on purpose: too low = a blue up arrow on the left of the note, too high =
+ * an amber down arrow on its right (the same sides as the neighbouring note in Auto).
  */
 export function StringReadout({ target, display, progress }: Props) {
   const inTune = display?.inTune ?? false;
@@ -38,17 +40,25 @@ export function StringReadout({ target, display, progress }: Props) {
       accessibilityLiveRegion="polite"
       accessibilityLabel={spokenLabel(target, display)}>
       <View style={styles.row}>
-        <View style={styles.side} />
+        <View style={styles.side}>
+          {direction === 'up' ? <Arrow direction="up" size={44} color={colors.tooLow} /> : null}
+        </View>
         <BigNote midi={target} size={96} color={inTune ? colors.inTune : colors.text} />
         <View style={styles.side}>
-          {direction ? (
-            <Arrow direction={direction} size={44} color={colors.offPitch} />
+          {direction === 'down' ? (
+            <Arrow direction="down" size={44} color={colors.offPitch} />
           ) : inTune ? (
             <Text style={styles.check}>✓</Text>
           ) : null}
         </View>
       </View>
-      <Text style={[styles.detail, inTune && styles.detailInTune]}>
+      <Text
+        style={[
+          styles.detail,
+          inTune && styles.detailInTune,
+          direction === 'up' && styles.detailUp,
+          direction === 'down' && styles.detailDown,
+        ]}>
         {!display
           ? 'Pluck the string'
           : `${inTune ? 'In tune' : direction === 'up' ? 'Tune up' : 'Tune down'}  ·  ${centsLabel(display.cents)}  ·  ${display.hz.toFixed(1)} Hz`}
@@ -66,4 +76,6 @@ const styles = StyleSheet.create({
   check: { fontSize: 44, fontWeight: '700', color: colors.inTune },
   detail: { marginTop: 4, fontSize: 17, color: colors.dim, fontVariant: ['tabular-nums'] },
   detailInTune: { color: colors.inTune },
+  detailUp: { color: colors.tooLow },
+  detailDown: { color: colors.offPitch },
 });
