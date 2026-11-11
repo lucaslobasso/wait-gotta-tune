@@ -80,6 +80,9 @@ export function TunerScreen() {
 
   const selectProfile = (id: string) => {
     tuner.cancelCheck();
+    // An instrument listens once a string is selected: do not keep the microphone
+    // (and the background) running from Auto with nothing to tune.
+    if (id !== CHROMATIC.id) tuner.stop();
     setProfileId(id);
     resetStrings();
   };
