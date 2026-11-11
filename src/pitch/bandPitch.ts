@@ -1,11 +1,16 @@
 import { midiToFreq } from '../music/notes';
+import type { PitchFrame } from '../tuner/types';
 import {
   CHECK_CLEAR_CENTS,
+  CHECK_MIN_LEVEL,
   CHECK_LOW_HZ,
   CHECK_PARTIALS,
   CHECK_RANGE_CENTS,
   CHECK_STEP_CENTS,
   CHECK_WINDOW_SIZE,
+  RMS_CLOSE_DB,
+  TUNE_MIN_SHARE,
+  TUNE_RANGE_CENTS,
 } from '../tuner/config';
 
 export type BandReading = {
@@ -17,7 +22,6 @@ export type BandReading = {
   share: number;
 };
 
-const STEPS = Math.round(CHECK_RANGE_CENTS / CHECK_STEP_CENTS);
 const hannCache = new Map<number, Float64Array>();
 
 function hann(size: number): Float64Array {
@@ -71,7 +75,9 @@ export function measureString(
   sampleRate: number,
   targetMidi: number,
   ringing: readonly number[] = [],
+  rangeCents: number = CHECK_RANGE_CENTS,
 ): BandReading | null {
+  const steps = Math.round(rangeCents / CHECK_STEP_CENTS);
   const f0 = midiToFreq(targetMidi);
   const length = f0 < CHECK_LOW_HZ ? samples.length : Math.min(samples.length, CHECK_WINDOW_SIZE);
   const start = samples.length - length;
@@ -106,10 +112,10 @@ export function measureString(
   const useOctave = !crowded(targetMidi + 12, ringing);
   const useNote = !useOctave || !crowded(targetMidi, ringing);
 
-  const scores = new Float64Array(2 * STEPS + 1);
+  const scores = new Float64Array(2 * steps + 1);
   let best = 0;
   for (let i = 0; i < scores.length; i++) {
-    const f = f0 * 2 ** (((i - STEPS) * CHECK_STEP_CENTS) / 1200);
+    const f = f0 * 2 ** (((i - steps) * CHECK_STEP_CENTS) / 1200);
     const omega = (2 * Math.PI * f * block) / sampleRate;
     const note = useNote ? magnitude(x, omega) : 0;
     const octave = useOctave ? magnitude(x, 2 * omega) : 0;
@@ -125,8 +131,33 @@ export function measureString(
   const curve = a - 2 * b + c;
   const shift = curve < 0 ? (0.5 * (a - c)) / curve : 0;
   return {
-    cents: (best - STEPS + shift) * CHECK_STEP_CENTS,
+    cents: (best - steps + shift) * CHECK_STEP_CENTS,
     level: b,
     share: b / (Math.SQRT2 * rms),
+  };
+}
+
+/**
+ * Pitch of one known string as a `PitchFrame`, for tuning that string: only its own note
+ * and octave are measured, up to TUNE_RANGE_CENTS either way. A neighbouring string, or an
+ * overtone of a lower one, is outside the band, so it cannot be mistaken for this string.
+ * No peak, too quiet, or too little of the band's sound -> `hz: null`.
+ *
+ * Pure. Needs the long microphone history (about 0.3 s of it is used), so it follows the
+ * pitch a little more slowly than `detectPitch` and a lot more steadily.
+ */
+export function stringFrame(
+  samples: Float32Array,
+  sampleRate: number,
+  targetMidi: number,
+): PitchFrame {
+  const none: PitchFrame = { hz: null, clarity: 0, rmsDb: RMS_CLOSE_DB - 1 };
+  const reading = measureString(samples, sampleRate, targetMidi, [], TUNE_RANGE_CENTS);
+  if (!reading || reading.level < CHECK_MIN_LEVEL || reading.share < TUNE_MIN_SHARE) return none;
+  return {
+    hz: midiToFreq(targetMidi + reading.cents / 100),
+    clarity: 1,
+    // The peak covers the note and its octave: about 1.5x the fundamental, so -3 dB is close enough.
+    rmsDb: 20 * Math.log10(reading.level) - 3,
   };
 }

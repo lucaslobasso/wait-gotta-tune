@@ -55,6 +55,9 @@ microphone -> 4096-sample window -> pitch detection (pitchy, McLeod method)
            -> animated note strip + cents gauge
 ```
 
+In the instrument modes the selected string is measured in its own narrow band instead, so a
+neighbouring string or an overtone cannot take over the reading.
+
 The string check does not use the pitch detector (with several strings ringing it hears the chord,
 not the string). It looks for a peak in a narrow band around the expected string's note and octave.
 

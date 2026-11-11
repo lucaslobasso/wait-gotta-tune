@@ -4,6 +4,7 @@ import { AppState, Linking, Platform } from 'react-native';
 import { useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
 import { createMicStream } from '../audio/createMicStream';
+import { stringFrame } from '../pitch/bandPitch';
 import { createPitchDetector } from '../pitch/detectPitch';
 import { CHECK_BUFFER_SIZE, HOP_SIZE, WINDOW_SIZE } from './config';
 import { createInTuneTimer } from './inTuneTimer';
@@ -111,8 +112,11 @@ export function useTuner({
           hopSize: HOP_SIZE,
           minFill: WINDOW_SIZE,
         }),
+        // One string selected: measure only that string's band. Auto: general pitch detection.
         detect: (window, sampleRate) =>
-          detector(window.subarray(window.length - WINDOW_SIZE), sampleRate),
+          targetRef.current !== null
+            ? stringFrame(window, sampleRate, targetRef.current)
+            : detector(window.subarray(window.length - WINDOW_SIZE), sampleRate),
         smoother: createSmoother({ target: () => targetRef.current }),
         appState: {
           current: () => AppState.currentState ?? 'active',

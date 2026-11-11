@@ -14,6 +14,7 @@ Skills: none (code repo, edited deliberately).
 - **Animated values, not React state, per audio frame.** `useTuner` writes shared values (`.get()`/`.set()`, the React Compiler is on) on every detection and only sets React state when the visible text changes.
 - **Native dependency changes need a new EAS build** (limited free quota): ask first. JS-only changes do not.
 - **The string check never uses `detectPitch`.** With several strings ringing, a single-pitch detector reports the chord's common bass note (C4 over G4 reads as C3). The check measures only the expected string's own band (`bandPitch`), goes from string 1 down so a thick string's overtones are not yet ringing when the thinner strings they land on are measured, and skips a band that an earlier string's overtone falls into.
+- **A selected string is measured with `stringFrame`, not `detectPitch`.** The general detector has to guess the note, so a weak low E reads as its overtones and a neighbouring string that is still sounding takes over the reading. `detectPitch` is for Auto mode only.
 - Use relative imports inside `src/` (tests run without a path mapper).
 - Run `npm run check` before committing.
 - Reply in English, briefly.
@@ -29,7 +30,7 @@ None. This is a code repo: make normal commits with a short sentence-case messag
   - `createMicStream.native.ts`: `AudioRecorder.onAudioReady` + `FrameAssembler`; capture constants at the top (Android input preset, iOS session category/mode).
   - `createMicStream.web.ts`: `getUserMedia` + `AudioContext` + `AnalyserNode`, polled once per hop; full teardown on stop.
   - `createMicStream.d.ts`: type declaration for the platform split. `frameAssembler.ts`: chunks in, latest window out every hop (starts once `minFill` samples arrived; silence before them).
-- `src/pitch/`: `detectPitch.ts` (DC removal, RMS in dBFS, pitchy (McLeod) -> `PitchFrame`), `bandPitch.ts` (`measureString`: the peak near one known string's note and octave, by Goertzel on a block-averaged window; used by the string check).
+- `src/pitch/`: `detectPitch.ts` (DC removal, RMS in dBFS, pitchy (McLeod) -> `PitchFrame`), `bandPitch.ts` (`measureString`: the peak near one known string's note and octave, by Goertzel on a block-averaged window; used by the string check; `stringFrame`: the same measurement as a `PitchFrame`, up to `TUNE_RANGE_CENTS` either way, used while one string is selected).
 - `src/music/`: `notes.ts` (Hz <-> MIDI, note names, cents), `tuningProfile.ts` (`PROFILES`: Auto, Guitar, Bass, Ukulele, each listing strings from string 1 down; `nextString`). A new instrument is one more profile there.
 - `src/tuner/`:
   - `config.ts`, `types.ts`.
@@ -49,5 +50,5 @@ None. This is a code repo: make normal commits with a short sentence-case messag
 
 ## Not verified yet
 - Native microphone path on a real Android phone and on iOS (written against the library's types; needs a dev build). Calibrate `RMS_OPEN_DB` / `RMS_CLOSE_DB` and the Android input preset there.
-- The string check on real instruments and real microphones: only synthetic plucks were tested (Jest and headless Edge). `CHECK_MIN_LEVEL`, `CHECK_MIN_SHARE` and `CHECK_IN_TUNE_CENTS` are guesses; phone microphones may be too weak for bass. Single-string tuning right after a check still uses `detectPitch`, so strings left ringing can confuse it until they are muted.
+- The string check on real instruments and real microphones: only synthetic plucks were tested (Jest and headless Edge). `CHECK_MIN_LEVEL`, `CHECK_MIN_SHARE` and `CHECK_IN_TUNE_CENTS` are guesses; phone microphones may be too weak for bass. Single-string tuning was only tested with synthetic audio too: a string more than `TUNE_RANGE_CENTS` off is not heard at all, and the reading follows the pitch about 0.3 s late.
 - Detection time on Hermes (estimate 5–20 ms per window on a mid-range phone, unmeasured).

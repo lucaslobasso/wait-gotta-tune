@@ -62,6 +62,13 @@ export const CHECK_STEP_CENTS = 4;
  */
 export const CHECK_CLEAR_CENTS = 180;
 export const CHECK_PARTIALS = 6;
+/**
+ * Tuning one selected string: it is measured only in its own band (see `stringFrame`), so other
+ * strings and its own overtones cannot pull the reading. The band reaches this far either way
+ * (a string further off than this is not heard); the peak must be this share of the band's sound.
+ */
+export const TUNE_RANGE_CENTS = 250;
+export const TUNE_MIN_SHARE = 0.4;
 /** The string's peak must be at least this loud (linear amplitude, about -54 dBFS)... */
 export const CHECK_MIN_LEVEL = 0.002;
 /** ...and at least this share of everything heard in its range. */
