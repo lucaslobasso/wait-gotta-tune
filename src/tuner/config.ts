@@ -1,5 +1,12 @@
 /** All tuning constants in one place. RMS and clarity gates are starting points; calibrate on devices. */
 
+/**
+ * Every window below is sized in samples for about this rate (44.1 kHz is fine too).
+ * Some computers run audio at 96 or 192 kHz, where the same windows would be far too
+ * short for low notes: the web microphone asks the browser for this rate instead.
+ */
+export const PREFERRED_SAMPLE_RATE = 48000;
+
 export const WINDOW_SIZE = 4096;
 export const HOP_SIZE = 2048;
 
@@ -42,26 +49,16 @@ export const IN_TUNE_HOLD_MS = 3000;
 /** Longest gap between two readings that still counts as continuous ringing. */
 export const MAX_FRAME_GAP_MS = 250;
 
-/**
- * String check (experimental): the app asks for each string in turn, from string 1
- * down, and gives each a verdict. Each string is measured only in its own narrow
- * band, so strings that are still ringing do not disturb it. Untested on real
- * instruments: calibrate the level and share gates on devices.
- */
-/** Samples the microphone keeps for the check (the tuner itself uses the last WINDOW_SIZE). */
+/** Samples the microphone keeps (the Auto tuner uses the last WINDOW_SIZE of them). */
 export const CHECK_BUFFER_SIZE = 32768;
-/** Samples analysed per measurement; strings below CHECK_LOW_HZ use the whole buffer. */
+/** Band measurements use this many samples; strings below CHECK_LOW_HZ use the whole buffer. */
 export const CHECK_WINDOW_SIZE = 16384;
 export const CHECK_LOW_HZ = 70;
-/** A string is searched this far (cents) around its note, on a grid of this step. */
-export const CHECK_RANGE_CENTS = 80;
+/** Band measurements search on a grid of this step (cents). */
 export const CHECK_STEP_CENTS = 4;
-/**
- * A band (the note or its octave) is not used when one of the first CHECK_PARTIALS
- * partials of a string that is already ringing lies within this many cents of it.
- */
-export const CHECK_CLEAR_CENTS = 180;
-export const CHECK_PARTIALS = 6;
+/** A measured peak must be at least this loud (linear amplitude, about -54 dBFS). */
+export const CHECK_MIN_LEVEL = 0.002;
+
 /**
  * Tuning one selected string: it is measured only in its own band (see `stringFrame`), so other
  * strings and its own overtones cannot pull the reading. The band reaches this far either way
@@ -69,18 +66,45 @@ export const CHECK_PARTIALS = 6;
  */
 export const TUNE_RANGE_CENTS = 250;
 export const TUNE_MIN_SHARE = 0.4;
-/** The string's peak must be at least this loud (linear amplitude, about -54 dBFS)... */
-export const CHECK_MIN_LEVEL = 0.002;
-/** ...and at least this share of everything heard in its range. */
+
+/**
+ * String check (experimental): the user plucks every string once, from the thickest
+ * to string 1, a fraction of a second apart. Each pluck heard is taken as the next
+ * string in that order (it is not recognised by its pitch), then that string is
+ * measured around its own note. Untested on real instruments: calibrate on devices.
+ */
+/**
+ * Plucks are found by comparing the last WINDOW_SIZE samples with the same thing at
+ * least this long ago (by time: windows arrive at different rates on web and native).
+ */
+export const CHECK_COMPARE_MS = 60;
+/**
+ * A pluck is either a jump in the overall level by this factor, reaching at least
+ * CHECK_ONSET_MIN_RMS (linear RMS, about -50 dBFS)...
+ */
+export const CHECK_ONSET_RATIO = 1.6;
+export const CHECK_ONSET_MIN_RMS = 0.003;
+/**
+ * ...or new sound around the note of the string that is due (a soft pluck over ringing
+ * strings barely moves the overall level): some pitch in its band grew by at least this
+ * share of the overall level, and by at least CHECK_MIN_LEVEL...
+ */
+export const CHECK_ONSET_NEW_SHARE = 0.25;
+/** ...and at least this long after the previous pluck (in practice about 150 to 190 ms: see CHECK_COMPARE_MS). */
+export const CHECK_MIN_GAP_MS = 150;
+/** The measurement starts this long after a pluck is noticed (skips the attack)... */
+export const CHECK_SKIP_MS = 45;
+/** ...and covers at least / at most this much sound, always ending before the next pluck. */
+export const CHECK_MIN_MEASURE_MS = 70;
+export const CHECK_MAX_MEASURE_MS = 250;
+/** What was already sounding is taken from audio ending this long before the pluck was noticed. */
+export const CHECK_PRE_GAP_MS = 70;
+/** How far (cents) from its note a plucked string is searched. */
+export const CHECK_RANGE_CENTS = 250;
+/** The new sound must be at least this share of everything in the string's range. */
 export const CHECK_MIN_SHARE = 0.1;
-/** A verdict needs this many consecutive measurements within this many cents of each other. */
-export const CHECK_STABLE_FRAMES = 4;
-export const CHECK_STABLE_CENTS = 2;
 /** A string passes the check when it is within this many cents. */
 export const CHECK_IN_TUNE_CENTS = 8;
-/** A string not heard for this long is reported as missing and the check moves on. */
-export const CHECK_STRING_TIMEOUT_MS = 6000;
+/** The check ends when no pluck is heard for this long. */
+export const CHECK_WAIT_MS = 6000;
 
-/** Range of the note strip: A0 to G#6. */
-export const STRIP_MIN_MIDI = 21;
-export const STRIP_MAX_MIDI = 92;

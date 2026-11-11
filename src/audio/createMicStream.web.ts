@@ -1,3 +1,4 @@
+import { PREFERRED_SAMPLE_RATE } from '../tuner/config';
 import { MicError, type MicPermission, type MicStream, type MicStreamOptions } from './types';
 
 type AudioContextCtor = typeof AudioContext;
@@ -6,6 +7,23 @@ function audioContextCtor(): AudioContextCtor | undefined {
   if (typeof window === 'undefined') return undefined;
   const w = window as unknown as { AudioContext?: AudioContextCtor; webkitAudioContext?: AudioContextCtor };
   return w.AudioContext ?? w.webkitAudioContext;
+}
+
+/**
+ * A context at the rate the analysis windows are sized for; the browser resamples the
+ * microphone. Falls back to the device's own rate where a fixed rate is not supported.
+ */
+function createContext(preferred: boolean): AudioContext | null {
+  const Ctor = audioContextCtor();
+  if (!Ctor) return null;
+  if (preferred) {
+    try {
+      return new Ctor({ sampleRate: PREFERRED_SAMPLE_RATE });
+    } catch {
+      // fixed rates not supported here
+    }
+  }
+  return new Ctor();
 }
 
 function delay(ms: number): Promise<void> {
@@ -25,10 +43,7 @@ export function createMicStream({ windowSize, hopSize }: MicStreamOptions): MicS
   let raf = 0;
 
   function prepare(): void {
-    if (!ctx || ctx.state === 'closed') {
-      const Ctor = audioContextCtor();
-      ctx = Ctor ? new Ctor() : null;
-    }
+    if (!ctx || ctx.state === 'closed') ctx = createContext(true);
     void ctx?.resume().catch(() => {});
   }
 
@@ -72,8 +87,8 @@ export function createMicStream({ windowSize, hopSize }: MicStreamOptions): MicS
       throw new MicError('unavailable', 'This browser cannot access the microphone (HTTPS is required).');
     }
     if (!ctx || ctx.state === 'closed') prepare();
-    const context = ctx;
-    if (!context) throw new MicError('unavailable', 'Web Audio is not available in this browser.');
+    if (!ctx) throw new MicError('unavailable', 'Web Audio is not available in this browser.');
+    let context: AudioContext = ctx;
 
     let media: MediaStream;
     try {
@@ -104,7 +119,18 @@ export function createMicStream({ windowSize, hopSize }: MicStreamOptions): MicS
       }
     }
 
-    source = context.createMediaStreamSource(media);
+    try {
+      source = context.createMediaStreamSource(media);
+    } catch {
+      // Some browsers cannot connect a microphone to a context at another rate than its own.
+      void context.close().catch(() => {});
+      const fallback = createContext(false);
+      if (!fallback) throw new MicError('unavailable', 'Web Audio is not available in this browser.');
+      context = fallback;
+      ctx = fallback;
+      await Promise.race([context.resume().catch(() => {}), delay(300)]);
+      source = context.createMediaStreamSource(media);
+    }
     const analyser = context.createAnalyser();
     analyser.fftSize = windowSize;
     source.connect(analyser);

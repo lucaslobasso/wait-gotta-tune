@@ -51,6 +51,8 @@ export type Tuner = {
   /** 0..1: how long the target string has rung in tune, towards the hold time. */
   progress: SharedValue<number>;
   tap: () => void;
+  /** Stops listening and releases the microphone until the next tap. */
+  stop: () => void;
   /** While a string check is running: the verdicts so far and the string to pluck now. */
   check: { verdicts: StringVerdict[]; current: number } | null;
   /** Starts a string check for these string notes (MIDI); starts the microphone if needed. */
@@ -209,6 +211,7 @@ export function useTuner({
   }, [midi, cents, presence, tuned, progress]);
 
   const tap = useCallback(() => controllerRef.current?.tap(), []);
+  const stop = useCallback(() => controllerRef.current?.stop(), []);
 
   const startCheck = useCallback((targets: readonly number[]) => {
     checkRef.current = createStrumCheck(targets);
@@ -230,6 +233,7 @@ export function useTuner({
     tuned,
     progress,
     tap,
+    stop,
     check,
     startCheck,
     cancelCheck,

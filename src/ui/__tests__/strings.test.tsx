@@ -119,18 +119,18 @@ describe('StringList after a string check', () => {
     await render(
       <StringList
         strings={UKULELE.targets}
-        selected={2}
+        selected={1}
         done={new Set()}
         direction={null}
         onSelect={onSelect}
-        verdicts={[{ status: 'ok', cents: 0 }, missing, missing, missing]}
+        verdicts={[missing, missing, missing, { status: 'ok', cents: 0 }]}
         locked
       />,
     );
-    await fireEvent.press(screen.getByLabelText('String 4, G 4'));
+    await fireEvent.press(screen.getByLabelText('String 1, A 4'));
     expect(onSelect).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('String 1, A 4, in tune')).toBeTruthy();
-    // String 2 was not heard; strings 3 (current) and 4 are still to come.
+    expect(screen.getByLabelText('String 4, G 4, in tune')).toBeTruthy();
+    // The check goes from string 4 up: 3 gave no clear pitch; 2 (due now) and 1 are still to come.
     expect(screen.getAllByText('?')).toHaveLength(1);
   });
 });
@@ -141,6 +141,7 @@ describe('CheckPanel', () => {
     await render(<CheckPanel index={2} midi={55} total={6} onCancel={onCancel} />);
     expect(screen.getByText('Pluck string 3')).toBeTruthy();
     expect(screen.getByLabelText('Pluck string 3, G 3')).toBeTruthy();
+    expect(screen.getByText(/4 of 6/)).toBeTruthy();
     await fireEvent.press(screen.getByText('Cancel'));
     expect(onCancel).toHaveBeenCalled();
   });

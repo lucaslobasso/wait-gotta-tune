@@ -10,10 +10,10 @@ import { CentsGauge } from './CentsGauge';
 import { CheckPanel } from './CheckPanel';
 import { ModePicker } from './ModePicker';
 import { NoteReadout } from './NoteReadout';
-import { NoteStrip } from './NoteStrip';
 import { StatusPanel } from './StatusPanel';
 import { StringList, type TuneDirection } from './StringList';
 import { StringReadout } from './StringReadout';
+import { TuneBackdrop } from './TuneBackdrop';
 import { colors, MAX_COLUMN_WIDTH } from './theme';
 
 const NO_STRINGS: ReadonlySet<number> = new Set();
@@ -54,7 +54,7 @@ export function TunerScreen() {
     },
     onCheckDone: (result) => {
       if (result.every((v) => v.status === 'missing')) {
-        setNotice('Could not hear the first string. Try again a bit louder.');
+        setNotice('Could not hear the strings. Try again a bit louder.');
         return;
       }
       const passed = new Set<number>();
@@ -119,6 +119,7 @@ export function TunerScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}>
+      <TuneBackdrop cents={tuner.cents} presence={tuner.presence} />
       <View style={styles.column} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
         <View style={styles.header}>
           <Text style={styles.title} accessibilityRole="header">
@@ -152,6 +153,17 @@ export function TunerScreen() {
 
         {width > 0 ? (
           <View style={styles.meters}>
+            {listening && !checking ? (
+              <View style={styles.actions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Stop listening"
+                  onPress={tuner.stop}
+                  style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
+                  <Text style={styles.actionLabel}>Stop</Text>
+                </Pressable>
+              </View>
+            ) : null}
             {isInstrument && !checking ? (
               <View style={styles.actions}>
                 <Pressable
@@ -183,15 +195,15 @@ export function TunerScreen() {
                 skipped={skipped}
                 locked={checking}
               />
-            ) : (
-              <NoteStrip width={width} midi={tuner.midi} presence={tuner.presence} />
-            )}
-            <CentsGauge
-              width={width}
-              cents={tuner.cents}
-              tuned={tuner.tuned}
-              presence={tuner.presence}
-            />
+            ) : null}
+            {isInstrument ? (
+              <CentsGauge
+                width={width}
+                cents={tuner.cents}
+                tuned={tuner.tuned}
+                presence={tuner.presence}
+              />
+            ) : null}
           </View>
         ) : null}
       </View>

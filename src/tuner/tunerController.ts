@@ -73,6 +73,15 @@ export class TunerController {
     this.requestStart();
   }
 
+  /** The user stopped the tuner: release the microphone and wait for a tap. */
+  stop(): void {
+    if (this.disposed || (this.status !== 'listening' && this.status !== 'requesting')) return;
+    this.want = false;
+    this.setStatus('idle');
+    this.sink.onReading(null);
+    this.enqueue();
+  }
+
   dispose(): void {
     this.disposed = true;
     this.want = false;

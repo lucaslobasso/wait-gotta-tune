@@ -152,6 +152,31 @@ describe('TunerController', () => {
     expect(t.windows).toHaveLength(2);
   });
 
+  it('stops on request: releases the microphone and waits for a tap', async () => {
+    const t = setup();
+    t.controller.mount();
+    t.controller.tap();
+    await flush();
+    t.controller.stop();
+    expect(t.status()).toBe('idle');
+    expect(t.readings[t.readings.length - 1]).toBeNull();
+    await flush();
+    expect(t.mic.active).toBe(false);
+    expect(t.keepAwake.off).toHaveBeenCalled();
+    t.mic.emit();
+    expect(t.windows).toHaveLength(0);
+
+    // Coming back to the app does not restart it; a tap does.
+    t.app.set('background');
+    t.app.set('active');
+    await flush();
+    expect(t.status()).toBe('idle');
+    t.controller.tap();
+    await flush();
+    expect(t.status()).toBe('listening');
+    expect(t.mic.overlapped).toBe(false);
+  });
+
   it('turns frames into readings while listening', async () => {
     const t = setup();
     t.controller.mount();

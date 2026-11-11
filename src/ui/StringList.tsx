@@ -20,7 +20,7 @@ type Props = {
   verdicts?: readonly (StringVerdict | null)[] | null;
   /** Strings that passed the check: shown as in tune and not selectable. */
   skipped?: ReadonlySet<number>;
-  /** True while a check runs: `selected` is the string to pluck and none can be pressed. */
+  /** True while a check runs: `selected` is the string to pluck next (they go from the last string up) and none can be pressed. */
   locked?: boolean;
 };
 
@@ -92,7 +92,7 @@ export function StringList({
                 <Arrow direction={direction} size={16} color={colors.offPitch} />
               ) : isOff ? (
                 <Text style={styles.off}>{verdictLabel(verdict!.cents!)}</Text>
-              ) : verdict?.status === 'missing' && (!locked || index < (selected ?? 0)) ? (
+              ) : verdict?.status === 'missing' && (!locked || index > (selected ?? strings.length)) ? (
                 <Text style={styles.waiting}>?</Text>
               ) : null}
             </View>

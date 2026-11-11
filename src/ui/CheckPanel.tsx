@@ -12,7 +12,7 @@ type Props = {
   onCancel: () => void;
 };
 
-/** Shown while a string check runs: says which string to pluck next. */
+/** Shown while a string check runs: says which string is expected next (thickest first). */
 export function CheckPanel({ index, midi, total, onCancel }: Props) {
   return (
     <View
@@ -23,7 +23,7 @@ export function CheckPanel({ index, midi, total, onCancel }: Props) {
       <Text style={styles.title}>Pluck string {index + 1}</Text>
       <BigNote midi={midi} size={72} color={colors.text} />
       <Text style={styles.detail}>
-        {index + 1} of {total} · let it ring until the next one lights up
+        {total - index} of {total} · one string at a time, from string {total} to string 1
       </Text>
       <Pressable
         accessibilityRole="button"

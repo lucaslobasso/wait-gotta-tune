@@ -45,7 +45,28 @@ export function BigNote({ midi, color = colors.text, size = 128 }: BigNoteProps)
   );
 }
 
-/** Auto mode: the nearest note with its octave, and a small cents / frequency line. */
+/**
+ * The note next to the detected one, on the side the pitch leans towards (left: the
+ * note below, when flat; right: the note above, when sharp). Empty keeps the spacing.
+ */
+function Neighbour({ midi }: { midi: number | null }) {
+  const note = midi === null ? null : midiToNote(midi);
+  return (
+    <View style={styles.neighbour}>
+      {note ? (
+        <Text style={styles.neighbourName} maxFontSizeMultiplier={1.2}>
+          {note.name}
+          <Text style={styles.neighbourOctave}>{note.octave}</Text>
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Auto mode: the nearest note with its octave, the neighbouring note the pitch leans
+ * towards, and a small cents / frequency line.
+ */
 export function NoteReadout({ display }: { display: TunerDisplay | null }) {
   if (!display) {
     return (
@@ -63,7 +84,11 @@ export function NoteReadout({ display }: { display: TunerDisplay | null }) {
       accessible
       accessibilityLiveRegion="polite"
       accessibilityLabel={spokenLabel(display)}>
-      <BigNote midi={display.note} color={display.inTune ? colors.inTune : colors.text} />
+      <View style={styles.around}>
+        <Neighbour midi={!display.inTune && display.cents < 0 ? display.note - 1 : null} />
+        <BigNote midi={display.note} color={display.inTune ? colors.inTune : colors.text} />
+        <Neighbour midi={!display.inTune && display.cents > 0 ? display.note + 1 : null} />
+      </View>
       <Text style={[styles.detail, display.inTune && styles.detailInTune]}>
         {display.inTune ? 'In tune ✓' : centsLabel(display.cents)}
         {`  ·  ${display.hz.toFixed(1)} Hz`}
@@ -76,6 +101,10 @@ const styles = StyleSheet.create({
   root: { alignItems: 'center', justifyContent: 'center' },
   held: { opacity: 0.45 },
   noteRow: { flexDirection: 'row', alignItems: 'stretch' },
+  around: { flexDirection: 'row', alignItems: 'center' },
+  neighbour: { width: 76, alignItems: 'center', justifyContent: 'center' },
+  neighbourName: { fontSize: 30, fontWeight: '600', color: colors.dim },
+  neighbourOctave: { fontSize: 17, fontWeight: '400' },
   letter: { fontSize: 128, lineHeight: 144, fontWeight: '700', color: colors.text },
   placeholder: { color: colors.line },
   marks: { justifyContent: 'space-between', marginLeft: 4 },

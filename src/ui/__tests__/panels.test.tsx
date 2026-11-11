@@ -42,10 +42,32 @@ describe('NoteReadout', () => {
     );
     expect(screen.getByText('A')).toBeTruthy();
     expect(screen.getByText('♯')).toBeTruthy();
-    expect(screen.getByText('4')).toBeTruthy();
+    // The octave of the note itself, and of the neighbouring note (B4).
+    expect(screen.getAllByText('4')).toHaveLength(2);
+    expect(screen.getByText(/^B4$/)).toBeTruthy();
     expect(screen.getByText(/\+12 cents/)).toBeTruthy();
     expect(screen.getByText(/469\.5 Hz/)).toBeTruthy();
     expect(screen.getByLabelText('A sharp 4, 12 cents sharp')).toBeTruthy();
+  });
+
+  it('shows the neighbouring note on the side the pitch leans to, and none in tune', async () => {
+    const { rerender } = await render(
+      <NoteReadout display={{ note: 69, cents: 20, hz: 445.1, inTune: false, held: false }} />,
+    );
+    expect(screen.getByText(/^A♯4$/)).toBeTruthy();
+    expect(screen.queryByText(/^G♯4$/)).toBeNull();
+
+    await rerender(
+      <NoteReadout display={{ note: 69, cents: -20, hz: 434.9, inTune: false, held: false }} />,
+    );
+    expect(screen.getByText(/^G♯4$/)).toBeTruthy();
+    expect(screen.queryByText(/^A♯4$/)).toBeNull();
+
+    await rerender(
+      <NoteReadout display={{ note: 69, cents: 2, hz: 440.5, inTune: true, held: false }} />,
+    );
+    expect(screen.queryByText(/^G♯4$/)).toBeNull();
+    expect(screen.queryByText(/^A♯4$/)).toBeNull();
   });
 
   it('says so in words when in tune, and describes flat notes', async () => {
