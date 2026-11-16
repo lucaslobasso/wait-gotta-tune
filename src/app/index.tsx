@@ -5,7 +5,7 @@ import { TunerScreen } from '../ui/TunerScreen';
 export default function Index() {
   return (
     <>
-      <Stack.Screen options={{ title: 'Wait Gotta Tune' }} />
+      <Stack.Screen options={{ title: 'Wait, Gotta Tune!' }} />
       <TunerScreen />
     </>
   );

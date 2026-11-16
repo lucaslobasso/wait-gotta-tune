@@ -1,4 +1,4 @@
-# wait-gotta-tune
+# Wait, Gotta Tune! (`wait-gotta-tune`)
 
 A simple chromatic tuner for web, Android and iOS from one Expo SDK 58 (React Native, TypeScript) codebase. One screen with four modes. **Auto** shows the nearest note big, with one small neighbouring note beside it on the side the pitch leans to (below on the left when flat, above on the right when sharp); there is no note strip and no cents gauge in any mode (the user found them confusing). **Guitar / Bass / Ukulele** show the instrument's strings as horizontal lines (string 1, the thinnest, at the top; note and octave on the left); the user selects a string, an arrow says which way to tune it (too low = blue up arrow on the left of the note, too high = amber down arrow on its right), and after it has rung in tune for 3 seconds the tuner moves to the next string that is not done. In every mode the background shifts from its dark blue to green as the pitch nears the note, and a Stop button releases the microphone while listening. **Check all strings** (beta, instrument modes): the user plucks every string once, from the thickest to string 1, about 0.2 to 0.8 s apart; each pluck heard is taken as the next string in that order, each string gets a verdict (in tune / cents flat / cents sharp / no clear pitch), the ones that passed are disabled and the first one that is off is selected; "Enable skipped strings" re-enables them.
 Web is hosted on GitHub Pages (public repo). Android is built with EAS and installed on a phone. iOS is covered by the web build in Safari until there is an Apple Developer account.
@@ -48,6 +48,7 @@ None. This is a code repo: make normal commits with a short sentence-case messag
 - `npm run web`: dev server (the mic works on localhost; other devices need HTTPS).
 - `npm run check`: `tsc --noEmit`, `expo lint`, `jest`.
 - `npm run export:web`: static build in `dist/`.
+- `npm run screenshots` (`docs/screenshots.mjs`): rebuilds, then captures the README pictures in `docs/` from headless Edge with a fake Web Audio microphone (`--no-build`, `BROWSER_CHANNEL=chrome`). Re-run it after visible UI changes.
 - `eas build -p android --profile development|preview`: dev client / standalone APK (needs `eas login` and `eas init` once).
 
 ## Not verified yet

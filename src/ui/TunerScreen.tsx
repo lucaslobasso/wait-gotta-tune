@@ -125,7 +125,7 @@ export function TunerScreen() {
       <View style={styles.column} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
         <View style={styles.header}>
           <Text style={styles.title} accessibilityRole="header">
-            Wait, gotta tune
+            Wait, Gotta Tune!
           </Text>
           <Text style={styles.reference}>A4 = {A4_HZ} Hz</Text>
         </View>
