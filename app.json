@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Wait Gotta Tune",
+    "name": "Wait, Gotta Tune!",
     "slug": "wait-gotta-tune",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -52,7 +52,7 @@
         "react-native-audio-api",
         {
           "iosBackgroundMode": false,
-          "iosMicrophonePermission": "Wait Gotta Tune listens to your instrument to show the note you play. Audio never leaves the device.",
+          "iosMicrophonePermission": "Wait, Gotta Tune! listens to your instrument to show the note you play. Audio never leaves the device.",
           "androidPermissions": ["android.permission.RECORD_AUDIO"],
           "androidForegroundService": false
         }

@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "main": "expo-router/entry",
   "private": true,
+  "license": "MIT",
+  "author": "Lucas Lobasso",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -12,7 +14,8 @@
     "test": "jest",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm test"
+    "check": "npm run typecheck && npm run lint && npm test",
+    "screenshots": "node docs/screenshots.mjs"
   },
   "dependencies": {
     "expo": "~58.0.23",
@@ -45,6 +48,7 @@
     "eslint-config-expo": "~58.0.4",
     "jest": "^30.5.2",
     "jest-expo": "~58.0.14",
+    "playwright-core": "^1.65.1",
     "typescript": "~6.0.3"
   },
   "jest": {
