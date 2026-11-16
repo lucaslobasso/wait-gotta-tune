@@ -48,6 +48,7 @@ None. This is a code repo: make normal commits with a short sentence-case messag
 - `npm run web`: dev server (the mic works on localhost; other devices need HTTPS).
 - `npm run check`: `tsc --noEmit`, `expo lint`, `jest`.
 - `npm run export:web`: static build in `dist/`.
+- `npm run screenshots` (`docs/screenshots.mjs`): rebuilds, then captures the README pictures in `docs/` from headless Edge with a fake Web Audio microphone (`--no-build`, `BROWSER_CHANNEL=chrome`). Re-run it after visible UI changes.
 - `eas build -p android --profile development|preview`: dev client / standalone APK (needs `eas login` and `eas init` once).
 
 ## Not verified yet
